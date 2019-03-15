@@ -220,6 +220,23 @@ int list_del (list_t* list, list_elem* elem)
     return 0;
 }
 
+int list_erase (list_t* list)
+{
+    CHECK_PTR (list, -1);
+
+    list_elem* elem = list -> head;
+
+    size_t size = list -> size;
+    for (size_t i = 0; i < size; i++)
+    {
+        CHECK_PTR (elem, -1);
+
+        list_del (list, elem);
+
+        elem = elem -> next;
+    }
+}
+
 list_elem* list_get_head (list_t* list)
 {
     CHECK_PTR (list, NULL);
@@ -282,18 +299,19 @@ list_elem* list_find (list_t* list, data_t val)
     returns 0  if success
 */
 int list_process (list_t* list,
-                  int (*func)(list_elem* elem, void* buf), void* buf)
+                  int (*func)(data_t val, void* buf), void* buf)
 {
     CHECK_PTR (list, -1);
     CHECK_PTR (func, -1);
 
     list_elem* elem = list -> head;
+    size_t size = list -> size;
 
-    for (size_t i = 0; i < list -> size; i++)
+    for (size_t i = 0; i < size; i++)
     {
         CHECK_PTR (elem, -1);
 
-        if ( ((*func)(elem, buf)) == -1)
+        if ( ((*func)(elem -> value, buf)) == -1)
         {
             return -1;
         }
