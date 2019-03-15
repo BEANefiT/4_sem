@@ -276,3 +276,30 @@ list_elem* list_find (list_t* list, data_t val)
 
     return elem;
 }
+
+/*
+    returns -1 if error
+    returns 0  if success
+*/
+int list_process (list_t* list,
+                  int (*func)(list_elem* elem, void* buf), void* buf)
+{
+    CHECK_PTR (list, -1);
+    CHECK_PTR (func, -1);
+
+    list_elem* elem = list -> head;
+
+    for (size_t i = 0; i < list -> size; i++)
+    {
+        CHECK_PTR (elem, -1);
+
+        if ( ((*func)(elem, buf)) == -1)
+        {
+            return -1;
+        }
+
+        elem = elem -> next;
+    }
+
+    return 0;
+}

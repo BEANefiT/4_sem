@@ -21,5 +21,8 @@ list_elem*  list_get_head   (list_t* list);
 list_elem*  list_get_tail   (list_t* list);
 list_elem*  list_get        (list_t* list, size_t pos);
 list_elem*  list_find       (list_t* list, data_t val);
+int         list_process    (list_t* list,
+                             int (*func)(list_elem* elem, void* buf),
+                             void* buf);
 
 #endif //__LIST_H__
