@@ -29,7 +29,7 @@ struct list_t
 */
 list_t* list_constr()
 {
-    list_t* list = (list_t *) calloc (sizeof (list_t), 1);
+    list_t* list = (list_t *) faultcalloc (sizeof (list_t), 1);
 
     if (list)
     {
@@ -49,7 +49,7 @@ int list_push_tail (list_t* list, data_t val)
 {
     CHECK_PTR (list, -1);
 
-    list_elem* elem = (list_elem *) calloc (sizeof (list_elem), 1);
+    list_elem* elem = (list_elem *) faultcalloc (sizeof (list_elem), 1);
 
     if (!elem)
         return -1;
@@ -88,7 +88,7 @@ int list_push_head (list_t* list, data_t val)
 {
     CHECK_PTR (list, -1);
 
-    list_elem* elem = (list_elem *) calloc (sizeof (list_elem), 1);
+    list_elem* elem = (list_elem *) faultcalloc (sizeof (list_elem), 1);
 
     if (!elem)
         return -1;
@@ -112,19 +112,29 @@ int list_push_head (list_t* list, data_t val)
 int list_insert (list_t* list, list_elem* pos, data_t val)
 {
     CHECK_PTR (list, -1);
-    CHECK_PTR (pos,  -1);
 
-    if ((list_check_elem (list, pos)) != 1)
+    if (!list -> size)
     {
-        errno = EINVAL;
+        list_elem* elem = (list_elem *) faultcalloc (sizeof(list_elem), 1);
 
-        return -1;
+        if (!elem)
+            return -1;
+
+        elem -> value = val;
+        elem -> next = NULL;
+        list -> head = elem;
+        list -> tail = elem;
+        (list -> size)++;
+
+        return 0;
     }
+
+    CHECK_PTR (pos,  -1);
 
     if (pos == list -> tail)
         return list_push_tail (list, val);
 
-    list_elem* elem = (list_elem *) calloc (sizeof (list_elem), 1);
+    list_elem* elem = (list_elem *) faultcalloc (sizeof (list_elem), 1);
 
     if (!elem)
         return -1;
@@ -235,6 +245,8 @@ int list_erase (list_t* list)
 
         elem = elem -> next;
     }
+
+    return 0;
 }
 
 list_elem* list_get_head (list_t* list)

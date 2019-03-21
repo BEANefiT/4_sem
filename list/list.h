@@ -4,6 +4,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <errno.h>
+#include "faultinj.h"
 
 typedef struct list_t       list_t;
 typedef struct list_elem    list_elem;
