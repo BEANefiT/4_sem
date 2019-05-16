@@ -1,39 +1,127 @@
+#define DEBUG
+
 #include <errno.h>
+#include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-double calculate( double a, double b);
+#define END_A 1.
+#define END_B 3.7
+
+#define HANDLE_ERROR( msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
+#define HANDLE_ERROR_EN( msg) \
+    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
+#define FORWARD_ERROR( msg) \
+    do { int en = errno; fprintf( stderr, msg); errno = en; return -1; } while ( 0)
+
+struct ends_t
+{
+    double end_a;
+    double end_b;
+};
+
+struct thread_info
+{
+    pthread_t      tid;    // Thread ID returned by pthread_create()
+    int            tnum;   // App-defined thread #
+    struct ends_t* ends;   // Ends of calculating
+    double         result; // Result of calculating
+};
+
+struct thread_info* tinfo = NULL; // Array with threads' info
+
+int          get_num_of_threads( char* str);
+int          init_tinfo( int num_of_threads);
+static void* calculate( void* arg);
 
 int main( int argc, char* argv[])
 {
-    double result = calculate( 1., 2.);
+    int    num_of_threads = 0;
+    double result = 0.;
 
-    if ( errno)
+    if ( ( num_of_threads = get_num_of_threads( argv[1])) == -1)
+        HANDLE_ERROR( "In get_num_of_threads");
+
+    if ( init_tinfo( num_of_threads) == -1)
+        HANDLE_ERROR( "In init_tinfo");
+
+    for ( int tnum = 0; tnum < num_of_threads; tnum++)
     {
-        perror( NULL);
-        exit( EXIT_FAILURE);
+        if ( pthread_create( &tinfo[tnum].tid, NULL, &calculate, &(tinfo[tnum])) != 0)
+            HANDLE_ERROR( "In pthread_create");
     }
 
-    printf( "Result is %lg\n", result);
+    for ( int tnum = 0; tnum < num_of_threads; tnum++)
+    {
+        if ( pthread_join( tinfo[tnum].tid, NULL) != 0)
+            HANDLE_ERROR( "In pthread_join");
+
+        result += tinfo[tnum].result;
+    }
 
     exit( EXIT_SUCCESS);
 }
 
-
 /** Simple function which can integrate only one set up function;
  *  calculation is made from ( x = a) to ( x = b). */
-double calculate( double a, double b)
+static void* calculate( void* arg)
 {
-    double dx = 1e-9;
-    double result = 0;
+    struct thread_info* info = arg;
 
-    for ( double x = a; x <= b; x += dx)
+#ifdef DEBUG
+    printf( "thread #%u:\n"
+            "\tid = %d\n"
+            "\tinitialised result = %lg\n"
+            "\tends ptr = %p\n"
+            "\tend_a = %lg\tend_b = %lg\n",
+            info->tnum, info->tid, info->result, info->ends,
+            info->ends->end_a, info->ends->end_b);
+#endif // DEBUG
+
+    double dx = 1e-9;
+
+    for ( double x = info->ends->end_a; x <= info->ends->end_b; x += dx)
     {
-        result += ( 1 / x) * ( 1 / ( x - 0.5)) * dx;
+        info->result += ( 1. / x) * ( 1. / ( x - 0.5)) * dx;
 
         if ( errno)
-            return 0;
+            HANDLE_ERROR( "While calculation\n");
+    }
+}
+
+int get_num_of_threads( char* str)
+{
+    return 2;
+}
+
+int init_tinfo( int num_of_threads)
+{
+    tinfo = ( struct thread_info*)calloc( num_of_threads, sizeof( *tinfo));
+
+    if ( tinfo == NULL)
+        FORWARD_ERROR( "Calloc tinfo\n");
+
+    double step = ( END_B - END_A) / num_of_threads;
+    
+    if ( errno)
+        FORWARD_ERROR( "Division error\n");
+
+
+    for ( int i = 0; i < num_of_threads; i++)
+    {
+        tinfo[i].tnum = i + 1;
+        tinfo[i].result = 0;
+        tinfo[i].ends = ( struct ends_t*)calloc( 1, sizeof( *tinfo[i].ends));
+
+        if ( tinfo[i].ends == NULL)
+            FORWARD_ERROR( "Calloc ends\n");
+        
+        tinfo[i].ends->end_a = END_A + step * i;
+        tinfo[i].ends->end_b = END_A + step * ( i + 1);
     }
 
-    return result;
+    return 0;
 }
