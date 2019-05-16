@@ -1,12 +1,13 @@
 #define DEBUG
+#define _GNU_SOURCE
 
 #include <errno.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
 
-#define END_A 1.
-#define END_B 3.7
+#define END_A 2.1
+#define END_B 5.9
 
 #define HANDLE_ERROR( msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
@@ -25,10 +26,10 @@ struct ends_t
 
 struct thread_info
 {
-    pthread_t      tid;    // Thread ID returned by pthread_create()
-    int            tnum;   // App-defined thread #
-    struct ends_t* ends;   // Ends of calculating
-    double         result; // Result of calculating
+    pthread_t      tid;    // Thread ID returned by pthread_create().
+    int            tnum;   // App-defined thread #.
+    struct ends_t* ends;   // Ends of calculating.
+    double         result; // Result of calculating.
 };
 
 struct thread_info* tinfo = NULL; // Array with threads' info
@@ -48,11 +49,27 @@ int main( int argc, char* argv[])
     if ( init_tinfo( num_of_threads) == -1)
         HANDLE_ERROR( "In init_tinfo");
 
+    pthread_attr_t attr;
+    cpu_set_t      cpuset;
+
+    if ( pthread_attr_init( &attr) != 0)
+        HANDLE_ERROR( "In pthread_attr_init()");
+ 
     for ( int tnum = 0; tnum < num_of_threads; tnum++)
     {
-        if ( pthread_create( &tinfo[tnum].tid, NULL, &calculate, &(tinfo[tnum])) != 0)
+        CPU_ZERO( &cpuset);
+        // ( tnum % 4) is for testing.
+        CPU_SET( tnum % 4, &cpuset);
+
+        if ( pthread_attr_setaffinity_np( &attr, sizeof( cpu_set_t), &cpuset) != 0)
+            HANDLE_ERROR( "In pthread_attr_setaffinity_np()");
+
+        if ( pthread_create( &tinfo[tnum].tid, &attr, &calculate, &(tinfo[tnum])) != 0)
             HANDLE_ERROR( "In pthread_create");
     }
+
+    if ( pthread_attr_destroy( &attr) != 0)
+        HANDLE_ERROR( "In pthread_attr_destroy()");
 
     for ( int tnum = 0; tnum < num_of_threads; tnum++)
     {
@@ -72,8 +89,8 @@ static void* calculate( void* arg)
     struct thread_info* info = arg;
 
 #ifdef DEBUG
-    printf( "thread #%u:\n"
-            "\tid = %d\n"
+    printf( "thread #%d:\n"
+            "\tid = %u\n"
             "\tinitialised result = %lg\n"
             "\tends ptr = %p\n"
             "\tend_a = %lg\tend_b = %lg\n",
@@ -91,10 +108,10 @@ static void* calculate( void* arg)
             HANDLE_ERROR( "While calculation\n");
     }
 }
-
+// For testing.
 int get_num_of_threads( char* str)
 {
-    return 2;
+    return 5;
 }
 
 int init_tinfo( int num_of_threads)
