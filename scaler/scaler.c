@@ -7,59 +7,78 @@
 #include <stdlib.h>
 
 #define END_A 2.1
-#define END_B 5.9
+#define END_B 9.9
+#define MAX_STR_LENGTH 128
 
 #define HANDLE_ERROR( msg) \
-    do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
+    do { perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
 
 #define HANDLE_ERROR_EN( msg) \
-    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
+    do { errno = en; perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
 
 #define FORWARD_ERROR( msg) \
     do { int en = errno; fprintf( stderr, msg); errno = en; return -1; } while ( 0)
 
-struct ends_t
+typedef struct ends
 {
     double end_a;
     double end_b;
-};
+} ends_t;
 
-struct thread_info
+typedef struct thread_info
 {
     pthread_t      tid;    // Thread ID returned by pthread_create().
     int            tnum;   // App-defined thread #.
-    struct ends_t* ends;   // Ends of calculating.
+    ends_t*        ends;   // Ends of calculating.
     double         result; // Result of calculating.
-};
+} thread_info_t;
 
-struct thread_info* tinfo = NULL; // Array with threads' info
+typedef struct cpu_info
+{
+
+} cpu_info_t;
+
+typedef struct sys_info
+{
+    int num_of_cpus;
+    char* is_online;
+} sys_info_t;
+
+int num_of_threads = 0;
+int num_of_allocated_threads = 0; // To avoid memory leaks.
+thread_info_t* tinfo = NULL; // Array with threads' info.
 
 int          get_num_of_threads( char* str);
-int          init_tinfo( int num_of_threads);
+int          get_cpu( int tnum);
+int          init_tinfo();
+int          init_sysinfo();
+void         free_mem();
 static void* calculate( void* arg);
 
 int main( int argc, char* argv[])
 {
-    int    num_of_threads = 0;
     double result = 0.;
 
     if ( ( num_of_threads = get_num_of_threads( argv[1])) == -1)
         HANDLE_ERROR( "In get_num_of_threads");
 
-    if ( init_tinfo( num_of_threads) == -1)
+    if ( init_tinfo() == -1)
         HANDLE_ERROR( "In init_tinfo");
 
     pthread_attr_t attr;
     cpu_set_t      cpuset;
+
+    CPU_ZERO( &cpuset);
 
     if ( pthread_attr_init( &attr) != 0)
         HANDLE_ERROR( "In pthread_attr_init()");
  
     for ( int tnum = 0; tnum < num_of_threads; tnum++)
     {
-        CPU_ZERO( &cpuset);
-        // ( tnum % 4) is for testing.
-        CPU_SET( tnum % 4, &cpuset);
+        if ( tnum != 0)
+            CPU_CLR( get_cpu( tnum - 1), &cpuset);
+
+        CPU_SET( get_cpu( tnum), &cpuset);
 
         if ( pthread_attr_setaffinity_np( &attr, sizeof( cpu_set_t), &cpuset) != 0)
             HANDLE_ERROR( "In pthread_attr_setaffinity_np()");
@@ -79,6 +98,8 @@ int main( int argc, char* argv[])
         result += tinfo[tnum].result;
     }
 
+    free_mem();
+
     exit( EXIT_SUCCESS);
 }
 
@@ -86,7 +107,7 @@ int main( int argc, char* argv[])
  *  calculation is made from ( x = a) to ( x = b). */
 static void* calculate( void* arg)
 {
-    struct thread_info* info = arg;
+    thread_info_t* info = arg;
 
 #ifdef DEBUG
     printf( "thread #%d:\n"
@@ -99,24 +120,35 @@ static void* calculate( void* arg)
 #endif // DEBUG
 
     double dx = 1e-9;
+    double end_a = info->ends->end_a;
+    double end_b = info->ends->end_b;
+    double result = 0.;
 
-    for ( double x = info->ends->end_a; x <= info->ends->end_b; x += dx)
+    for ( double x = end_a; x <= end_b; x += dx)
     {
-        info->result += ( 1. / x) * ( 1. / ( x - 0.5)) * dx;
+        result += ( 1. / x) * ( 1. / ( x - 0.5)) * dx;
 
         if ( errno)
             HANDLE_ERROR( "While calculation\n");
     }
+
+    info->result = result;
 }
 // For testing.
 int get_num_of_threads( char* str)
 {
-    return 5;
+    return 1;
 }
 
-int init_tinfo( int num_of_threads)
+// For testing.
+int get_cpu( int tnum)
 {
-    tinfo = ( struct thread_info*)calloc( num_of_threads, sizeof( *tinfo));
+    return tnum % 4 + 1;
+}
+
+int init_tinfo()
+{
+    tinfo = ( thread_info_t*)calloc( num_of_threads, sizeof( *tinfo));
 
     if ( tinfo == NULL)
         FORWARD_ERROR( "Calloc tinfo\n");
@@ -131,7 +163,7 @@ int init_tinfo( int num_of_threads)
     {
         tinfo[i].tnum = i + 1;
         tinfo[i].result = 0;
-        tinfo[i].ends = ( struct ends_t*)calloc( 1, sizeof( *tinfo[i].ends));
+        tinfo[i].ends = ( ends_t*)calloc( 1, sizeof( *tinfo[i].ends));
 
         if ( tinfo[i].ends == NULL)
             FORWARD_ERROR( "Calloc ends\n");
@@ -142,3 +174,31 @@ int init_tinfo( int num_of_threads)
 
     return 0;
 }
+
+int init_sysinfo()
+{
+    int f = open( "/sys/devices/system/cpu/online", O_RDONLY);
+    
+    if ( f == -1)
+        FORWARD_ERROR( "Open 'cpu/online' list\n");
+
+    char cpu_online[MAX_STR_LENGTH] = {};
+
+    ssize_t read_res = read( f, &cpu_online, MAX_STR_LENGTH); 
+
+    if ( read_red == -1)
+        FORWARD_ERROR( "Read 'cpu/online' list\n");
+
+    close( f);
+
+    init_sys_info
+}
+
+void free_mem()
+{
+    for ( int i = 0; i < num_of_allocated_threads; i++)
+        free( tinfo[i].ends);
+
+    free( tinfo);
+}
+
