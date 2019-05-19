@@ -2,9 +2,11 @@
 #define _GNU_SOURCE
 
 #include <errno.h>
+#include <fcntl.h>
 #include <pthread.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <unistd.h>
 
 #define END_A 2.1
 #define END_B 9.9
@@ -37,21 +39,23 @@ typedef struct thread_info
     double         result; // Result of calculating.
 } thread_info_t;
 
-typedef struct cpu_info
+typedef struct core
 {
-
-} cpu_info_t;
+    int  num_of_cpus;
+    int* cpus;
+} core_t;
 
 typedef struct sys_info
 {
-    int num_of_cpus;
-    char* is_online;
+    int     num_of_cpus;
+    int     num_of_online_cpus;
+    core_t* cores;
 } sys_info_t;
 
 int            num_of_threads = 0;
 int            num_of_allocated_threads = 0; // To avoid memory leaks.
 thread_info_t* tinfo = NULL;                 // Array with threads' info.
-sys_info_t     sinfo = {0, NULL};
+sys_info_t     sinfo = {0, 0, NULL};
 
 int          get_num_of_threads( char* str);
 int          get_cpu( int tnum);
@@ -77,7 +81,7 @@ int main( int argc, char* argv[])
 
     if ( pthread_attr_init( &attr) != 0)
         HANDLE_ERROR( "In pthread_attr_init()");
- 
+
     for ( int tnum = 0; tnum < num_of_threads; tnum++)
     {
         if ( tnum != 0)
@@ -102,6 +106,8 @@ int main( int argc, char* argv[])
 
         result += tinfo[tnum].result;
     }
+
+    printf( "Result is %lg\n", result);
 
     free_mem();
 
@@ -139,10 +145,20 @@ static void* calculate( void* arg)
 
     info->result = result;
 }
-// For testing.
+
 int get_num_of_threads( char* str)
 {
-    return 1;
+    char* endptr = NULL;
+
+    int n_of_threads = strtol( str, &endptr, 10);
+
+    if ( str == NULL || *endptr != '\0')
+        FORWARD_ERROR_EN( "In strtol()\n", EINVAL);
+
+    else if (errno)
+        FORWARD_ERROR( "In strtol()\n");
+
+    return n_of_threads;
 }
 
 // For testing.
@@ -189,20 +205,36 @@ int init_sysinfo()
     if ( f == -1)
         FORWARD_ERROR( "Open 'cpu/online' list\n");
 
-    char cpu_online[MAX_STR_LENGTH] = {};
+    char* cpu_online = ( char*)calloc( MAX_STR_LENGTH, sizeof( char));
+
+    if ( cpu_online == NULL)
+        FORWARD_ERROR( "Calloc()\n");
 
     ssize_t read_res = read( f, &cpu_online, MAX_STR_LENGTH); 
 
     if ( read_res == -1)
+    {
+        free( cpu_online);
+
         FORWARD_ERROR( "Read 'cpu/online' list\n");
+    }
 
     cpu_online[read_res] = 0;
 
     close( f);
 
-    sinfo.is_online = ( char*)calloc( MAX_CPUS, sizeof( char));
+    char is_online[MAX_CPUS];
+
+    if ( is_online == NULL)
+    {
+        free( cpu_online);
+
+        FORWARD_ERROR( "Calloc()\n");
+    }
 
     char* endptr = cpu_online;
+
+    sinfo.cores = ( core_t*)calloc( MAX_CPUS, sizeof( *sinfo.cores));
 
     while ( *endptr != '\0')
     {
@@ -219,17 +251,65 @@ int init_sysinfo()
         }
 
         else if ( *endptr != ',' && *endptr != '\0')
+        {
+            free( cpu_online);
+
             FORWARD_ERROR_EN( "Invalid token\n", EINVAL);
+        }
 
         if ( *endptr != '\0')
             endptr ++;
 
         else
-            sinfo.num_of_cpus = token2;
+            sinfo.num_of_cpus = token_2;
 
-        for ( long i = token_1; i <= token_2; i++)
-            sinfo.is_online[i] = 1;
+        if ( token_2 >= MAX_CPUS)
+        {
+            free( cpu_online);
+
+            FORWARD_ERROR_EN( "Too much CPU's\n", EINVAL);
+        }
+
+        for ( int i = token_1; i <= token_2; i++)
+        {
+            sinfo.num_of_online_cpus ++;
+
+            is_online[i] = 1;
+
+            char cpu_topology_path[MAX_STR_LENGTH];
+
+            sprintf( cpu_topology_path,
+                     "/sys/devices/system/cpu/cpu%d/topology/core_id", i);
+
+            f = open( cpu_topology_path, O_RDONLY);
+
+            if ( f == -1)
+                FORWARD_ERROR( "Open 'cpu/online' list\n");
+
+            char core_id_str[MAX_STR_LENGTH];
+
+            ssize_t read_res = read( f, &core_id_str, MAX_STR_LENGTH); 
+
+            if ( read_res == -1)
+            {
+                free( cpu_online);
+
+                FORWARD_ERROR( "Read 'cpuX/topology/core_id'\n");
+            }
+
+            core_id_str[read_res] = 0;
+
+            close( f);
+
+            int core_id = strtol( core_id_str, NULL, 10);
+
+            sinfo.cores[core_id].cpus[sinfo.cores[core_id].num_of_cpus++] = i;
+        }
     }
+
+    free( cpu_online);
+
+    return 0;
 }
 
 void free_mem()
@@ -239,6 +319,6 @@ void free_mem()
 
     if ( tinfo) free( tinfo);
 
-    if ( sinfo.is_online) free( sinfo.is_online);
+    if ( sinfo.cores) free( sinfo.cores);
 }
 
