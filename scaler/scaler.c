@@ -9,15 +9,19 @@
 #define END_A 2.1
 #define END_B 9.9
 #define MAX_STR_LENGTH 128
+#define MAX_CPUS 128
 
 #define HANDLE_ERROR( msg) \
     do { perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
 
-#define HANDLE_ERROR_EN( msg) \
+#define HANDLE_ERROR_EN( msg, en) \
     do { errno = en; perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
 
 #define FORWARD_ERROR( msg) \
     do { int en = errno; fprintf( stderr, msg); errno = en; return -1; } while ( 0)
+
+#define FORWARD_ERROR_EN( msg, en) \
+    do { fprintf( stderr, msg); errno = en; return -1; } while ( 0)
 
 typedef struct ends
 {
@@ -44,9 +48,10 @@ typedef struct sys_info
     char* is_online;
 } sys_info_t;
 
-int num_of_threads = 0;
-int num_of_allocated_threads = 0; // To avoid memory leaks.
-thread_info_t* tinfo = NULL; // Array with threads' info.
+int            num_of_threads = 0;
+int            num_of_allocated_threads = 0; // To avoid memory leaks.
+thread_info_t* tinfo = NULL;                 // Array with threads' info.
+sys_info_t     sinfo = {0, NULL};
 
 int          get_num_of_threads( char* str);
 int          get_cpu( int tnum);
@@ -168,6 +173,8 @@ int init_tinfo()
         if ( tinfo[i].ends == NULL)
             FORWARD_ERROR( "Calloc ends\n");
         
+        num_of_allocated_threads ++;
+
         tinfo[i].ends->end_a = END_A + step * i;
         tinfo[i].ends->end_b = END_A + step * ( i + 1);
     }
@@ -186,12 +193,43 @@ int init_sysinfo()
 
     ssize_t read_res = read( f, &cpu_online, MAX_STR_LENGTH); 
 
-    if ( read_red == -1)
+    if ( read_res == -1)
         FORWARD_ERROR( "Read 'cpu/online' list\n");
+
+    cpu_online[read_res] = 0;
 
     close( f);
 
-    init_sys_info
+    sinfo.is_online = ( char*)calloc( MAX_CPUS, sizeof( char));
+
+    char* endptr = cpu_online;
+
+    while ( *endptr != '\0')
+    {
+        cpu_online = endptr;
+
+        long token_1 = strtol( cpu_online, &endptr, 10);
+        long token_2 = token_1;
+
+        if ( *endptr == '-')
+        {
+            cpu_online = endptr + 1;
+            
+            token_2 = strtol( cpu_online, &endptr, 10);
+        }
+
+        else if ( *endptr != ',' && *endptr != '\0')
+            FORWARD_ERROR_EN( "Invalid token\n", EINVAL);
+
+        if ( *endptr != '\0')
+            endptr ++;
+
+        else
+            sinfo.num_of_cpus = token2;
+
+        for ( long i = token_1; i <= token_2; i++)
+            sinfo.is_online[i] = 1;
+    }
 }
 
 void free_mem()
@@ -199,6 +237,8 @@ void free_mem()
     for ( int i = 0; i < num_of_allocated_threads; i++)
         free( tinfo[i].ends);
 
-    free( tinfo);
+    if ( tinfo) free( tinfo);
+
+    if ( sinfo.is_online) free( sinfo.is_online);
 }
 
