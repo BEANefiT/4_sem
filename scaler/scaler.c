@@ -12,9 +12,9 @@
 #define END_B 5.9
 #define MAX_STR_LENGTH 128
 #define MAX_CPUS 128
-#define HT_SPEEDUP 1.6
+#define HT_SPEEDUP 1.2
 
-#define FUNC( x) ( 1. / x) * ( 1. / ( x - 0.5))
+#define FUNC( x) ( ( 0.23 * x * x) - ( x - 0.5))
 
 #define HANDLE_ERROR( msg) \
     do { perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
@@ -209,7 +209,7 @@ int init_tinfo( char* num_of_threads_str)
 
     if ( tinfo == NULL)
         FORWARD_ERROR( "Calloc tinfo\n");
-    
+
     int    num_of_used_cpus = 0;
 
     if ( num_of_threads > sinfo.num_of_cores)
@@ -219,7 +219,7 @@ int init_tinfo( char* num_of_threads_str)
                  ( sinfo.num_of_double_cores));
 
         double all_parts = sinfo.num_of_cores 
-                           + num_of_used_double_cores * ( 1 - HT_SPEEDUP);
+                           + num_of_used_double_cores * ( HT_SPEEDUP - 1);
 
         num_of_used_cpus = sinfo.num_of_cores + num_of_used_double_cores;
 
@@ -235,6 +235,7 @@ int init_tinfo( char* num_of_threads_str)
 
         double end_a = END_A;
         double step = ( END_B - END_A) / all_parts;
+	printf( "step = %lg\n", step);
 
         for ( int i = 0; i < sinfo.num_of_cores; i++)
         {
@@ -254,7 +255,8 @@ int init_tinfo( char* num_of_threads_str)
                                            / core->cpus[0].num_of_threads;
 
                 core->cpus[1].ends.end_a = end_a + step * HT_SPEEDUP / 2;
-                core->cpus[1].ends.end_b = ( end_a += step * HT_SPEEDUP);
+                core->cpus[1].ends.end_b = end_a + step * HT_SPEEDUP;
+		end_a += step * HT_SPEEDUP;
                 core->cpus[1].num_of_threads = core->num_of_threads / 2;
                 core->cpus[1].local_step = step * HT_SPEEDUP / 2
                                            / core->cpus[1].num_of_threads;
