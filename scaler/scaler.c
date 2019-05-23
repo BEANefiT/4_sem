@@ -1,4 +1,4 @@
-#define DEBUG
+//#define DEBUG
 #define _GNU_SOURCE
 
 #include <errno.h>
@@ -324,9 +324,6 @@ int init_tinfo( char* num_of_threads_str)
 
         int local_thread_num = i / sinfo.num_of_cores;
 
-        if ( core->uses_hyperthreading)
-            local_thread_num /= 2;
-
         int ncpu = -1;
 
         if ( ( local_thread_num % 2) && core->uses_hyperthreading)
@@ -334,6 +331,9 @@ int init_tinfo( char* num_of_threads_str)
 
         else
             ncpu = 0;
+
+        if ( core->uses_hyperthreading)
+            local_thread_num /= 2;
 
         tinfo[i].cpu = core->cpus[ncpu].cnum;
         tinfo[i].ends.end_a = core->cpus[ncpu].local_step * local_thread_num
