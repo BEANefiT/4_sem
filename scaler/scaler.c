@@ -9,7 +9,7 @@
 #include <unistd.h>
 
 #define END_A 2.1
-#define END_B 9.9
+#define END_B 5.9
 #define MAX_STR_LENGTH 128
 #define MAX_CPUS 128
 
@@ -101,7 +101,7 @@ int main( int argc, char* argv[])
     if ( pthread_attr_init( &attr) != 0)
         HANDLE_ERROR( "In pthread_attr_init()");
 
-    for ( int tnum = 0; tnum < num_of_threads; tnum++)
+    for ( int tnum = 0; tnum < ( MAX( num_of_threads, sinfo.num_of_cores)); tnum++)
     {
         CPU_ZERO( &cpuset);
 
@@ -201,7 +201,7 @@ int init_tinfo( char* num_of_threads_str)
     if ( ( num_of_threads = get_num_of_threads( num_of_threads_str)) == -1)
         FORWARD_ERROR( "In get_num_of_threads()");
 
-    tinfo = ( thread_info_t*)calloc( num_of_threads, sizeof( *tinfo));
+    tinfo = ( thread_info_t*)calloc( MAX( num_of_threads, sinfo.num_of_cores), sizeof( *tinfo));
 
     if ( tinfo == NULL)
         FORWARD_ERROR( "Calloc tinfo\n");
@@ -292,14 +292,25 @@ int init_tinfo( char* num_of_threads_str)
     {
         double step = ( END_B - END_A) / num_of_threads;
 
-        for ( int i = 0; i < num_of_threads; i++)
+        for ( int i = 0; i < sinfo.num_of_cores; i++)
         {
             core_t* core = &sinfo.cores[get_core_id( i)];
 
             core->num_of_threads = 1;
-            core->cpus[0].local_step = step / core->num_of_threads;
-            core->cpus[0].ends.end_a = END_A + step * i;
-            core->cpus[0].ends.end_b = core->cpus[0].ends.end_a + step;
+            
+            if ( i < num_of_threads)
+            {
+                core->cpus[0].local_step = step / core->num_of_threads;
+                core->cpus[0].ends.end_a = END_A + step * i;
+                core->cpus[0].ends.end_b = core->cpus[0].ends.end_a + step;
+            }
+
+            else
+            {
+                core->cpus[0].local_step = END_B - END_A;
+                core->cpus[0].ends.end_a = END_A;
+                core->cpus[0].ends.end_b = END_B;
+            }
 
             #ifdef DEBUG
             printf( "core #%d\n"
@@ -314,7 +325,7 @@ int init_tinfo( char* num_of_threads_str)
 
     int core_num = 0;
 
-    for ( int i = 0; i < num_of_threads; i++)
+    for ( int i = 0; i < ( MAX( num_of_threads, sinfo.num_of_cores)); i++)
     {
         tinfo[i].tnum = i + 1;
         tinfo[i].core_id = get_core_id( core_num++);
