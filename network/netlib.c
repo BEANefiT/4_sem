@@ -90,13 +90,14 @@ int tcp_handshake_connect( const in_port_t port,
     return sockfd;
 }
 
-int tcp_handshake_accept( const in_port_t port, int backlog)
+int tcp_handshake_accept( const in_port_t port, int* sockfds,
+                          int nclients, int backlog)
 {
-    int sockfd = -1;
+    int sockfd_listen = -1;
 
-    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_STREAM, 0)));
+    CHECK_FORWARD( ( sockfd_listen = socket( AF_INET, SOCK_STREAM, 0)));
     
-    CHECK_FORWARD( ( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
+    CHECK_FORWARD( ( setsockopt( sockfd_listen, SOL_SOCKET, SO_REUSEADDR,
                                  &int_true, sizeof( int))));
 
     struct sockaddr_in addr;
@@ -108,19 +109,23 @@ int tcp_handshake_accept( const in_port_t port, int backlog)
 
     socklen_t addrlen = sizeof( addr);
 
-    CHECK_FORWARD( bind( sockfd, ( const struct sockaddr*)&addr,
+    CHECK_FORWARD( bind( sockfd_listen, ( const struct sockaddr*)&addr,
                          addrlen));
 
-    CHECK_FORWARD( listen( sockfd, backlog));
+    CHECK_FORWARD( listen( sockfd_listen, backlog));
 
-    CHECK_FORWARD( ( sockfd = accept( sockfd, ( struct sockaddr*)&addr,
-                                      &addrlen)));
+    for ( int i = 0; i < nclients; i++)
+    {
+        CHECK_FORWARD( ( sockfds[i] = accept( sockfd_listen,
+                                              ( struct sockaddr*)&addr,
+                                              &addrlen)));
 
-    #ifdef DEBUG
-    printf( "Accepted TCP socket = %d\n\n", sockfd);
-    #endif // DEBUG
+        #ifdef DEBUG
+        printf( "Accepted TCP socket = %d\n\n", sockfds[i]);
+        #endif // DEBUG
+    }
 
-    return sockfd;
+    return 0;
 }
 
 int str_2_uint( char* str)

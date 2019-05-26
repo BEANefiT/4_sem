@@ -2,7 +2,7 @@
 
 typedef struct
 {
-    int socket;
+    int sockfd;
     double partition;
 } client_t;
 
@@ -89,8 +89,12 @@ int connect_clients()
     printf( "UDP broadcast has been sent\n\n");
     #endif // DEBUG
 
+    int sockfds[nclients];
+
+    CHECK_FORWARD( tcp_handshake_accept( tcp_port, sockfds, nclients,
+                                         MAX_CLIENTS_NUM));
+
     for ( int i = 0; i < nclients; i++)
-        CHECK_FORWARD( ( clients[i].socket = 
-                         tcp_handshake_accept( tcp_port, MAX_CLIENTS_NUM)));
+        clients[i].sockfd = sockfds[i];
 }
 
