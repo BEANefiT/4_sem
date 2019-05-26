@@ -64,19 +64,21 @@ int main( int argc, char* argv[])
 
 int connect_clients()
 {
-    socket_t udp_socket = -1;
+    int udp_socket = -1;
         
     CHECK( ( udp_socket = socket( AF_INET, SOCK_DGRAM, 0)));
 
     char init_msg[8] = ".SERVER\0";
 
-    const struct sockaddr_in udp_dest_addr = {
-        .sin_family = AF_INET,
-        .sin_port = udp_port,
-        .sin_addr = INADDR_ANY
-    };
+    struct sockaddr_in udp_dest_addr;
+    memset( &udp_dest_addr, 0, sizeof( udp_dest_addr));
 
-    CHECK( sendto( udp_socket, init_msg, 7, 0,
-                   &udp_dest_addr, ( socklen_t)sizeof( udp_dest_addr));
+    udp_dest_addr.sin_family      = AF_INET;
+    udp_dest_addr.sin_port        = udp_port;
+    udp_dest_addr.sin_addr.s_addr = INADDR_ANY;
+
+    CHECK( sendto( udp_socket, init_msg, 8, 0,
+                   ( const struct sockaddr*)&udp_dest_addr,
+                   ( socklen_t)sizeof( udp_dest_addr)));
 }
 

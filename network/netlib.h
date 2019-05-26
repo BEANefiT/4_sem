@@ -7,9 +7,10 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <netinet/in.h>
-#include <netinet/types.h>
+#include <netinet/udp.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
 
@@ -32,6 +33,9 @@
 #define MIN( a, b) ( a > b ? b : a)
 
 #define MAX( a, b) ( a > b ? a : b)
+
+#define DEFAULT_UDP_PORT 48655
+#define DEFAULT_TCP_PORT 48656
 
 uint64_t str_2_uint( char*);
 
