@@ -5,8 +5,13 @@
 
 #include <arpa/inet.h>
 #include <errno.h>
+#include <inttypes.h>
+#include <netinet/in.h>
+#include <netinet/types.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <sys/socket.h>
+#include <sys/types.h>
 
 #define HANDLE_ERROR( msg) \
     do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
