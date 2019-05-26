@@ -33,7 +33,7 @@ int main( int argc, char* argv[])
         {
             printf( "Ports aren't identified, defaulting to:\n"
                     "\tudp_port = %d\n"
-                    "\ttcp_port = %d\n",
+                    "\ttcp_port = %d\n\n",
                     DEFAULT_UDP_PORT, DEFAULT_TCP_PORT);
 
             udp_port = htons( DEFAULT_UDP_PORT);
@@ -43,7 +43,7 @@ int main( int argc, char* argv[])
 
     CHECK( ( nclients = str_2_uint( argv[1])));
 
-    if ( ( clients = ( client_t*)calloc( nclients, sizeof( *clients))))
+    if ( !( clients = ( client_t*)calloc( nclients, sizeof( *clients))))
         HANDLE_ERROR( "In calloc for clent_t* clients");
 
     if ( argc > 2)
@@ -59,13 +59,13 @@ int main( int argc, char* argv[])
 
     CHECK( connect_clients());
 
-    CHECK( init_jobs());
+    //CHECK( init_jobs());
 
     double result = 0.;
 
-    CHECK( ( result = calculate()));
+    //CHECK( ( result = calculate()));
 
-    CHECK( disconnect_clients());
+    //CHECK( disconnect_clients());
 
     printf( "Result is %lg\n", result);
 
@@ -76,7 +76,11 @@ int connect_clients()
 {
     CHECK_FORWARD( udp_broadcast_send( udp_port));
 
+    #ifdef DEBUG
+    printf( "UDP broadcast has been sent\n\n");
+    #endif // DEBUG
+
     for ( int i = 0; i < nclients; i++)
-        CHECK_FORWARD( tcp_handshake( tcp_port, &clients[i].socket));
+        ;//CHECK_FORWARD( tcp_handshake( tcp_port, &clients[i].socket));
 }
 

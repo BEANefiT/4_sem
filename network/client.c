@@ -26,7 +26,7 @@ int main( int argc, char* argv[])
         {
             printf( "Ports aren't identified, defaulting to:\n"
                     "\tudp_port = %d\n"
-                    "\ttcp_port = %d\n",
+                    "\ttcp_port = %d\n\n",
                     DEFAULT_UDP_PORT, DEFAULT_TCP_PORT);
 
             udp_port = htons( DEFAULT_UDP_PORT);
@@ -49,13 +49,13 @@ int main( int argc, char* argv[])
 
     CHECK( connect_server());
 
-    CHECK( init_threads());
+    //CHECK( init_threads());
 
     double result = 0.;
 
-    CHECK( ( result = calculate()));
+    //CHECK( ( result = calculate()));
 
-    CHECK( disconnect_server( result));
+    //CHECK( disconnect_server( result));
 
     exit( EXIT_SUCCESS);
 }
@@ -63,5 +63,9 @@ int main( int argc, char* argv[])
 int connect_server()
 {
     CHECK_FORWARD( udp_broadcast_recv( udp_port));
+
+    #ifdef DEBUG
+    printf( "UDP broadcast has been received\n\n");
+    #endif // DEBUG
 }
 

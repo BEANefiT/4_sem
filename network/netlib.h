@@ -27,10 +27,10 @@
     do { fprintf( stderr, msg); errno = en; return -1; } while ( 0)
 
 #define CHECK( func) \
-    do { if ( func == -1) HANDLE_ERROR( "In"#func); } while ( 0)
+    do { if ( func == -1) HANDLE_ERROR( "In "#func); } while ( 0)
 
 #define CHECK_FORWARD( func) \
-    do { if ( func == -1) FORWARD_ERROR( "In"#func"\n"); } while ( 0)
+    do { if ( func == -1) FORWARD_ERROR( "In "#func"\n"); } while ( 0)
 
 #define MIN( a, b) ( a > b ? b : a)
 
