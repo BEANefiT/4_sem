@@ -1,171 +1,7 @@
-#define DEBUG
-#define _GNU_SOURCE
-
-#include <errno.h>
-#include <fcntl.h>
-#include <pthread.h>
-#include <stdio.h>
-#include <stdlib.h>
-#include <unistd.h>
-
-#define END_A 2.1
-#define END_B 5.9
-#define MAX_STR_LENGTH 128
-#define MAX_CPUS 128
-#define HT_SPEEDUP 1.2
-
-#define FUNC( x) ( ( 0.23 * x * x) - ( x - 0.5))
-
-#define HANDLE_ERROR( msg) \
-    do { perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
-
-#define HANDLE_ERROR_EN( msg, en) \
-    do { errno = en; perror(msg); free_mem(); exit(EXIT_FAILURE); } while ( 0)
-
-#define FORWARD_ERROR( msg) \
-    do { int en = errno; fprintf( stderr, msg); errno = en; return -1; } while ( 0)
-
-#define FORWARD_ERROR_EN( msg, en) \
-    do { fprintf( stderr, msg); errno = en; return -1; } while ( 0)
-
-#define MIN( a, b) ( a > b ? b : a)
-
-#define MAX( a, b) ( a > b ? a : b)
-
-typedef struct ends
-{
-    double end_a;
-    double end_b;
-} ends_t;
-
-typedef struct thread_info
-{
-    pthread_t      tid;     // Thread ID returned by pthread_create().
-    int            tnum;    // App-defined thread #.
-    int            cpu;     // Set CPU.
-    int            core_id; // Core ID.
-    ends_t         ends;    // Ends of calculating.
-    double         result;  // Result of calculating.
-} thread_info_t;
-
-typedef struct cpu
-{
-    int     cnum;
-    int     num_of_threads;
-    double  local_step;
-    ends_t  ends;
-} cpu_t;
-
-typedef struct core
-{
-    int    num_of_cpus;
-    int    uses_hyperthreading;
-    int    num_of_threads;
-    cpu_t  cpus[2];
-    
-} core_t;
-
-typedef struct sys_info
-{
-    int     num_of_cpus;
-    int     num_of_online_cpus;
-    int     num_of_cores;
-    int     num_of_single_cores;
-    int     num_of_double_cores;
-    core_t* cores;
-} sys_info_t;
-
-int            num_of_threads = 0;
-int            num_of_allocated_threads = 0; // To avoid memory leaks.
-thread_info_t* tinfo = NULL;                 // Array with threads' info.
-sys_info_t     sinfo = {0, 0, 0, 0, 0, NULL};
-
-int          get_num_of_threads( char* str);
-int          get_cpu( int core_num, int cpu_in_core_num);
-int          init_tinfo( char* num_of_threads_str);
-int          init_sysinfo();
-void         free_mem();
-static void* calculate( void* arg);
-
-int main( int argc, char* argv[])
-{
-    double result = 0.;
-
-    if ( init_sysinfo() == -1)
-        HANDLE_ERROR( "In init_sysinfo()");
-
-    if ( init_tinfo( argv[1]) == -1)
-        HANDLE_ERROR( "In init_tinfo");
-
-    pthread_attr_t attr;
-    cpu_set_t      cpuset;
-
-    CPU_ZERO( &cpuset);
-
-    if ( pthread_attr_init( &attr) != 0)
-        HANDLE_ERROR( "In pthread_attr_init()");
-
-    for ( int tnum = 0; tnum < MAX( num_of_threads, sinfo.num_of_cores); tnum++)
-    {
-        CPU_ZERO( &cpuset);
-
-        CPU_SET( tinfo[tnum].cpu, &cpuset);
-
-        if ( pthread_attr_setaffinity_np( &attr, sizeof( cpu_set_t), &cpuset) != 0)
-            HANDLE_ERROR( "In pthread_attr_setaffinity_np()");
-
-        if ( pthread_create( &tinfo[tnum].tid, &attr, &calculate, &(tinfo[tnum])) != 0)
-            HANDLE_ERROR( "In pthread_create");
-    }
-
-    if ( pthread_attr_destroy( &attr) != 0)
-        HANDLE_ERROR( "In pthread_attr_destroy()");
-
-    for ( int tnum = 0; tnum < num_of_threads; tnum++)
-    {
-        if ( pthread_join( tinfo[tnum].tid, NULL) != 0)
-            HANDLE_ERROR( "In pthread_join");
-
-        result += tinfo[tnum].result;
-    }
-
-    printf( "Result is %lg\n", result);
-
-    free_mem();
-
-    exit( EXIT_SUCCESS);
-}
+#include "scaler.h"
 
 /** Simple function which can integrate only one set up function;
  *  calculation is made from ( x = a) to ( x = b). */
-static void* calculate( void* arg)
-{
-    thread_info_t* info = arg;
-
-#ifdef DEBUG
-    printf( "thread #%d:\n"
-            "\tid = %u\n"
-            "\tcpu = %d\n"
-            "\tend_a = %lg\tend_b = %lg\n",
-            info->tnum, info->tid, info->cpu,
-            info->ends.end_a, info->ends.end_b);
-#endif // DEBUG
-
-    double dx = 1e-9;
-    double end_a = info->ends.end_a;
-    double end_b = info->ends.end_b;
-    double result = 0.;
-
-    for ( double x = end_a; x <= end_b; x += dx)
-    {
-        result += FUNC( x) * dx;
-
-        if ( errno)
-            HANDLE_ERROR( "While calculation\n");
-    }
-
-    info->result = result;
-}
 
 int get_num_of_threads( char* str)
 {
@@ -182,67 +18,81 @@ int get_num_of_threads( char* str)
     return n_of_threads;
 }
 
-int get_core_id( int core_num)
+int get_core_id_by_prev( int core_id_prev, sys_info_t* sinfo)
+{
+    int core_id = ( core_id_prev + 1) % MAX_CPUS;
+
+    while ( sinfo->cores[core_id].num_of_cpus == 0)
+        core_id = ( core_id + 1) % MAX_CPUS;
+
+    return core_id;
+}
+
+int get_core_id( int core_num, sys_info_t* sinfo)
 {
     int core_id = 0;
 
-    while ( sinfo.cores[core_id].num_of_cpus == 0)
+    while ( sinfo->cores[core_id].num_of_cpus == 0)
         core_id = ( core_id + 1) % MAX_CPUS;
 
     for ( int i = 0; i < core_num; i++)
     {
         core_id = ( core_id + 1) % MAX_CPUS;
 
-        while ( sinfo.cores[core_id].num_of_cpus == 0)
+        while ( sinfo->cores[core_id].num_of_cpus == 0)
             core_id = ( core_id + 1) % MAX_CPUS;
     }
 
     return core_id;
 }
 
-int init_tinfo( char* num_of_threads_str)
+int init_tinfo( char* num_of_threads_str, thread_info_t** tinfo,
+                sys_info_t* sinfo)
 {
+    int num_of_threads = -1;
+
     if ( ( num_of_threads = get_num_of_threads( num_of_threads_str)) == -1)
         FORWARD_ERROR( "In get_num_of_threads()");
 
-    tinfo = ( thread_info_t*)calloc( MAX( num_of_threads, sinfo.num_of_cores), sizeof( *tinfo));
+    *tinfo = ( thread_info_t*)calloc( MAX( num_of_threads, sinfo->num_of_cores),
+                                     sizeof( **tinfo));
 
-    if ( tinfo == NULL)
+    if ( *tinfo == NULL)
         FORWARD_ERROR( "Calloc tinfo\n");
 
     int    num_of_used_cpus = 0;
 
-    if ( num_of_threads > sinfo.num_of_cores)
+    if ( num_of_threads > sinfo->num_of_cores)
     {
         int num_of_used_double_cores =
-            MIN( ( num_of_threads - sinfo.num_of_cores),
-                 ( sinfo.num_of_double_cores));
+            MIN( ( num_of_threads - sinfo->num_of_cores),
+                 ( sinfo->num_of_double_cores));
 
-        double all_parts = sinfo.num_of_cores 
+        double all_parts = sinfo->num_of_cores 
                            + num_of_used_double_cores * ( HT_SPEEDUP - 1);
 
-        num_of_used_cpus = sinfo.num_of_cores + num_of_used_double_cores;
+        num_of_used_cpus = sinfo->num_of_cores + num_of_used_double_cores;
 
-        int core_num = 0;
+        int core_id = get_core_id( 0, sinfo);
 
         for ( int i = 0; i < num_of_used_double_cores; i++)
         {
-            while ( sinfo.cores[get_core_id( core_num)].num_of_cpus != 2)
-                core_num++;
+            while ( sinfo->cores[core_id].num_of_cpus != 2)
+                core_id = get_core_id_by_prev( core_id, sinfo);
 
-            sinfo.cores[get_core_id( core_num++)].uses_hyperthreading = 1;
+            sinfo->cores[core_id].uses_hyperthreading = 1;
+            core_id = get_core_id_by_prev( core_id, sinfo);
         }
 
         double end_a = END_A;
         double step = ( END_B - END_A) / all_parts;
-	printf( "step = %lg\n", step);
 
-        for ( int i = 0; i < sinfo.num_of_cores; i++)
+        for ( int i = 0; i < sinfo->num_of_cores; i++)
         {
-            core_t* core = &sinfo.cores[get_core_id( i)];
+            core_t* core = &sinfo->cores[get_core_id( i, sinfo)];
 
-            core->num_of_threads = num_of_threads / sinfo.num_of_cores
-                                + ( i < ( num_of_threads % sinfo.num_of_cores));
+            core->num_of_threads = num_of_threads / sinfo->num_of_cores
+                               + ( i < ( num_of_threads % sinfo->num_of_cores));
 
             core->cpus[0].ends.end_a = end_a;
             
@@ -268,7 +118,7 @@ int init_tinfo( char* num_of_threads_str)
                         "\tInterval = %lg\n"
                         "\t1st cpu: from %lg to %lg with %d threads\n"
                         "\t2nd cpu: from %lg to %lg with %d threads\n",
-                        i, get_core_id( i),
+                        i, get_core_id( i, sinfo),
                         core->cpus[1].ends.end_b - core->cpus[0].ends.end_a,
                         core->cpus[0].ends.end_a,
                         core->cpus[0].ends.end_b,
@@ -293,7 +143,7 @@ int init_tinfo( char* num_of_threads_str)
                         "\tcore doesn't use hyperthreading\n"
                         "\tinterval = %lg\n"
                         "\tfrom %lg to %lg with %d threads\n",
-                        i, get_core_id( i),
+                        i, get_core_id( i, sinfo),
                         core->cpus[0].ends.end_b - core->cpus[0].ends.end_a,
                         core->cpus[0].num_of_threads,
                         core->cpus[0].ends.end_a,
@@ -307,9 +157,9 @@ int init_tinfo( char* num_of_threads_str)
     {
         double step = ( END_B - END_A) / num_of_threads;
 
-        for ( int i = 0; i < sinfo.num_of_cores; i++)
+        for ( int i = 0; i < sinfo->num_of_cores; i++)
         {
-            core_t* core = &sinfo.cores[get_core_id( i)];
+            core_t* core = &sinfo->cores[get_core_id( i, sinfo)];
 
             core->num_of_threads = 1;
             
@@ -335,7 +185,7 @@ int init_tinfo( char* num_of_threads_str)
                     "\tcore doesn't use hyperthreading\n"
                     "\tinterval = %lg\n"
                     "\tfrom %lg to %lg with %d threads\n",
-                    i, get_core_id( i),
+                    i, get_core_id( i, sinfo),
                     core->cpus[0].ends.end_b - core->cpus[0].ends.end_a,
                     core->cpus[0].num_of_threads,
                     core->cpus[0].ends.end_a,
@@ -346,15 +196,21 @@ int init_tinfo( char* num_of_threads_str)
 
     int core_num = 0;
 
-    for ( int i = 0; i < MAX( num_of_threads, sinfo.num_of_cores); i++)
+    for ( int i = 0; i < MAX( num_of_threads, sinfo->num_of_cores); i++)
     {
-        tinfo[i].tnum = i + 1;
-        tinfo[i].core_id = get_core_id( core_num++);
-        tinfo[i].result = 0;
+        ( *tinfo)[i].tnum = i + 1;
+        ( *tinfo)[i].result = 0;
 
-        core_t* core = &sinfo.cores[tinfo[i].core_id];
+        if ( i != 0)
+            ( *tinfo)[i].core_id =
+                        get_core_id_by_prev( ( *tinfo)[i - 1].core_id, sinfo);
 
-        int local_thread_num = i / sinfo.num_of_cores;
+        else
+            ( *tinfo)[i].core_id = get_core_id( 0, sinfo);
+
+        core_t* core = &sinfo->cores[( *tinfo)[i].core_id];
+
+        int local_thread_num = i / sinfo->num_of_cores;
 
         int ncpu = -1;
 
@@ -367,16 +223,17 @@ int init_tinfo( char* num_of_threads_str)
         if ( core->uses_hyperthreading)
             local_thread_num /= 2;
 
-        tinfo[i].cpu = core->cpus[ncpu].cnum;
-        tinfo[i].ends.end_a = core->cpus[ncpu].local_step * local_thread_num
+        ( *tinfo)[i].cpu = core->cpus[ncpu].cnum;
+        ( *tinfo)[i].ends.end_a = core->cpus[ncpu].local_step * local_thread_num
                               + core->cpus[ncpu].ends.end_a;
-        tinfo[i].ends.end_b = tinfo[i].ends.end_a + core->cpus[ncpu].local_step;
+        ( *tinfo)[i].ends.end_b = ( *tinfo)[i].ends.end_a
+                                  + core->cpus[ncpu].local_step;
     }
 
-    return 0;
+    return num_of_threads;
 }
 
-int init_sysinfo()
+int init_sysinfo( sys_info_t* sinfo)
 {
     int f = open( "/sys/devices/system/cpu/online", O_RDONLY);
     
@@ -412,7 +269,7 @@ int init_sysinfo()
 
     char* endptr = cpu_online;
 
-    sinfo.cores = ( core_t*)calloc( MAX_CPUS, sizeof( *sinfo.cores));
+    sinfo->cores = ( core_t*)calloc( MAX_CPUS, sizeof( *sinfo->cores));
 
     while ( *endptr != '\0')
     {
@@ -439,7 +296,7 @@ int init_sysinfo()
             endptr ++;
 
         else
-            sinfo.num_of_cpus = token_2;
+            sinfo->num_of_cpus = token_2;
 
         if ( token_2 >= MAX_CPUS)
         {
@@ -450,7 +307,7 @@ int init_sysinfo()
 
         for ( int i = token_1; i <= token_2; i++)
         {
-            sinfo.num_of_online_cpus ++;
+            sinfo->num_of_online_cpus ++;
 
             is_online[i] = 1;
 
@@ -481,18 +338,18 @@ int init_sysinfo()
 
             int core_id = strtol( core_id_str, NULL, 10);
 
-            sinfo.cores[core_id].cpus[sinfo.cores[core_id].num_of_cpus++].cnum = i;
+            sinfo->cores[core_id].cpus[sinfo->cores[core_id].num_of_cpus++].cnum = i;
 
-            if ( sinfo.cores[core_id].num_of_cpus == 1)
+            if ( sinfo->cores[core_id].num_of_cpus == 1)
             {
-                sinfo.num_of_cores ++;
-                sinfo.num_of_single_cores ++;
+                sinfo->num_of_cores ++;
+                sinfo->num_of_single_cores ++;
             }
 
-            else if ( sinfo.cores[core_id].num_of_cpus == 2)
+            else if ( sinfo->cores[core_id].num_of_cpus == 2)
             {
-                sinfo.num_of_single_cores --;
-                sinfo.num_of_double_cores ++;
+                sinfo->num_of_single_cores --;
+                sinfo->num_of_double_cores ++;
             }
 
             else
@@ -509,10 +366,10 @@ int init_sysinfo()
     return 0;
 }
 
-void free_mem()
+void free_mem( thread_info_t* tinfo, sys_info_t* sinfo)
 {
     if ( tinfo) free( tinfo);
 
-    if ( sinfo.cores) free( sinfo.cores);
+    if ( sinfo->cores) free( sinfo->cores);
 }
 

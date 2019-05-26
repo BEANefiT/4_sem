@@ -1,11 +1,16 @@
 CC := gcc
 CFLAGS := -pthread -std=c99
 
-all: scaler
+.INTERMEDIATE: scaler.o main.o
 
-scaler: scaler.c
+all: main
+
+%.o: %.c scaler.h
+
+main: scaler.o main.o
+	$(CC) $(CFLAGS) $^ -o $@
 
 .PHONY: clean
 
 clean:
-	rm -rf scaler
+	@rm -rf main
