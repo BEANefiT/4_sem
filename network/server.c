@@ -1,13 +1,20 @@
 #include "netlib.h"
 
+typedef struct
+{
+    int socket;
+    double partition;
+} client_t;
+
 int      connect_clients();
 int      disconnect_clients();
 int      init_jobs();
 double   calculate();
 
-static uint64_t  nclients = 0;
+static int       nclients = 0;
 static in_port_t udp_port = -1;
 static in_port_t tcp_port = -1;
+static client_t* clients  = NULL;
 
 int main( int argc, char* argv[])
 {
@@ -16,8 +23,8 @@ int main( int argc, char* argv[])
         if ( argc != 2)
         {
             char msg[64] = {};
-
-            sprintf( msg, "Usage: %s nclients [udp_port] [tcp_port]", argv[0]);
+            sprintf( msg, "Usage: %s nclients [udp_port] [tcp_port]",
+                     argv[0]);
 
             HANDLE_ERROR_EN( msg, EINVAL);
         }
@@ -25,8 +32,8 @@ int main( int argc, char* argv[])
         else
         {
             printf( "Ports aren't identified, defaulting to:\n"
-                    "\tudp_port = %" PRIu64 "\n"
-                    "\ttcp_port = %" PRIu64 "\n",
+                    "\tudp_port = %d\n"
+                    "\ttcp_port = %d\n",
                     DEFAULT_UDP_PORT, DEFAULT_TCP_PORT);
 
             udp_port = htons( DEFAULT_UDP_PORT);
@@ -36,9 +43,12 @@ int main( int argc, char* argv[])
 
     CHECK( ( nclients = str_2_uint( argv[1])));
 
+    if ( ( clients = ( client_t*)calloc( nclients, sizeof( *clients))))
+        HANDLE_ERROR( "In calloc for clent_t* clients");
+
     if ( argc > 2)
     {
-        uint16_t port = 0;
+        int port = 0;
         
         CHECK( ( port = str_2_uint( argv[2])));
         udp_port = htons( port);
@@ -64,6 +74,9 @@ int main( int argc, char* argv[])
 
 int connect_clients()
 {
-    CHECK_FORWARD( udp_broadcast( udp_port));
+    CHECK_FORWARD( udp_broadcast_send( udp_port));
+
+    for ( int i = 0; i < nclients; i++)
+        CHECK_FORWARD( tcp_handshake( tcp_port, &clients[i].socket));
 }
 

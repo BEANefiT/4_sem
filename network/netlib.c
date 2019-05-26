@@ -1,30 +1,63 @@
 #include "netlib.h"
 
-int udp_broadcast( in_port_t udp_port)
+ssize_t udp_broadcast_send( in_port_t port)
 {
-    int udp_socket = -1;
+    int sockfd = -1;
         
-    CHECK_FORWARD( ( udp_socket = socket( AF_INET, SOCK_DGRAM, 0)));
+    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_DGRAM, 0)));
 
-    char init_msg[8] = ".SERVER\0";
+    char init_msg[SIGN_LEN] = SIGN;
 
-    struct sockaddr_in udp_dest_addr;
-    memset( &udp_dest_addr, 0, sizeof( udp_dest_addr));
+    struct sockaddr_in dest_addr;
+    memset( &dest_addr, 0, sizeof( dest_addr));
 
-    udp_dest_addr.sin_family      = AF_INET;
-    udp_dest_addr.sin_port        = udp_port;
-    udp_dest_addr.sin_addr.s_addr = INADDR_ANY;
+    dest_addr.sin_family      = AF_INET;
+    dest_addr.sin_port        = port;
+    dest_addr.sin_addr.s_addr = INADDR_ANY;
 
-    CHECK_FORWARD( sendto( udp_socket, init_msg, 8, 0,
-                           ( const struct sockaddr*)&udp_dest_addr,
-                           ( socklen_t)sizeof( udp_dest_addr)));
+    ssize_t send_res = sendto( sockfd, init_msg, SIGN_LEN, 0,
+                               ( const struct sockaddr*)&dest_addr,
+                               ( socklen_t)sizeof( dest_addr));
+
+    CHECK_FORWARD( send_res);
+    
+    return send_res;
 }
 
-uint64_t str_2_uint( char* str)
+ssize_t udp_broadcast_recv( in_port_t port)
+{
+    int sockfd = -1;
+        
+    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_DGRAM, 0)));
+
+    ssize_t recv_res = -1;
+
+    while( 1)
+    {
+        struct sockaddr_in src_addr;
+        memset( &src_addr, 0, sizeof( src_addr));
+
+        socklen_t addrlen = sizeof( src_addr);
+
+        char init_msg[SIGN_LEN];
+
+        recv_res = recvfrom( sockfd, init_msg, SIGN_LEN, 0,
+                             ( struct sockaddr*)&src_addr, addrlen);
+
+        CHECK_FORWARD( recv_res);
+
+        if ( !strcmp( init_msg, SIGN) && src_addr.sin_port == port)
+            break;
+    }
+    
+    return recv_res;
+}
+
+int str_2_uint( char* str)
 {
     char* endptr = NULL;
 
-    uint64_t n = strtoul( str, &endptr, 10);
+    int n = strtoul( str, &endptr, 10);
 
     if ( str == NULL || *endptr != '\0')
         FORWARD_ERROR_EN( "In strtol()\n", EINVAL);

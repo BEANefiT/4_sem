@@ -38,9 +38,12 @@
 
 #define DEFAULT_UDP_PORT 48655
 #define DEFAULT_TCP_PORT 48656
+#define SIGN ".SERVER\0"
+#define SIGN_LEN 8
 
-int      udp_broadcast( in_port_t);
-uint64_t str_2_uint( char*);
+ssize_t udp_broadcast_send( in_port_t);
+ssize_t udp_broadcast_recv( in_port_t);
+int str_2_uint( char*);
 
 #endif // __NETLIB_H__
 
