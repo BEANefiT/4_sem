@@ -29,6 +29,8 @@
 #define CHECK( func) \
     do { if ( func == -1) HANDLE_ERROR( "In"#func); } while ( 0)
 
+#define CHECK_FORWARD( func) \
+    do { if ( func == -1) FORWARD_ERROR( "In"#func"\n"); } while ( 0)
 
 #define MIN( a, b) ( a > b ? b : a)
 
@@ -37,6 +39,7 @@
 #define DEFAULT_UDP_PORT 48655
 #define DEFAULT_TCP_PORT 48656
 
+int      udp_broadcast( in_port_t);
 uint64_t str_2_uint( char*);
 
 #endif // __NETLIB_H__
