@@ -1,7 +1,7 @@
 CC := gcc
 CFLAGS := -pthread -std=c99
 
-.INTERMEDIATE: *.o
+.INTERMEDIATE: server.o client.o netlib.o
 
 all: server client
 
