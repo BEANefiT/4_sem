@@ -11,9 +11,9 @@ int      disconnect_clients();
 int      init_jobs();
 double   calculate();
 
-static int       nclients = 0;
-static in_port_t udp_port = -1;
-static in_port_t tcp_port = -1;
+static int       nclients = -1;
+static in_port_t udp_port = 0;
+static in_port_t tcp_port = 0;
 static client_t* clients  = NULL;
 
 int main( int argc, char* argv[])
@@ -42,6 +42,15 @@ int main( int argc, char* argv[])
     }
 
     CHECK( ( nclients = str_2_uint( argv[1])));
+
+    if ( nclients > MAX_CLIENTS_NUM)
+    {
+        char msg[64] = {};
+        sprintf( msg, "Too many clients, support number <= %d\n",
+                      MAX_CLIENTS_NUM);
+
+        HANDLE_ERROR( msg);
+    }
 
     if ( !( clients = ( client_t*)calloc( nclients, sizeof( *clients))))
         HANDLE_ERROR( "In calloc for clent_t* clients");
@@ -81,6 +90,7 @@ int connect_clients()
     #endif // DEBUG
 
     for ( int i = 0; i < nclients; i++)
-        ;//CHECK_FORWARD( tcp_handshake( tcp_port, &clients[i].socket));
+        CHECK_FORWARD( ( clients[i].socket = 
+                         tcp_handshake_accept( tcp_port, MAX_CLIENTS_NUM)));
 }
 

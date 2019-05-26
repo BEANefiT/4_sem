@@ -7,6 +7,7 @@
 #include <errno.h>
 #include <inttypes.h>
 #include <netinet/in.h>
+#include <netinet/tcp.h>
 #include <netinet/udp.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -40,10 +41,13 @@
 #define DEFAULT_TCP_PORT 48656
 #define SIGN ".SERVER\0"
 #define SIGN_LEN 8
+#define MAX_CLIENTS_NUM 64
 
-ssize_t udp_broadcast_send( in_port_t);
-ssize_t udp_broadcast_recv( in_port_t);
-int str_2_uint( char*);
+struct sockaddr_in udp_broadcast_recv( const in_port_t);
+ssize_t            udp_broadcast_send( const in_port_t);
+int                tcp_handshake_accept( const in_port_t, int backlog);
+int                tcp_handshake_connect( const in_port_t, struct sockaddr_in*);
+int                str_2_uint( char*);
 
 #endif // __NETLIB_H__
 

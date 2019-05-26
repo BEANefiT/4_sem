@@ -3,7 +3,7 @@
 static int int_true = 1;
 static int int_false = 0;
 
-ssize_t udp_broadcast_send( in_port_t port)
+ssize_t udp_broadcast_send( const in_port_t port)
 {
     int sockfd = -1;
         
@@ -30,14 +30,14 @@ ssize_t udp_broadcast_send( in_port_t port)
     return send_res;
 }
 
-ssize_t udp_broadcast_recv( in_port_t port)
+struct sockaddr_in udp_broadcast_recv( const in_port_t port)
 {
     int sockfd = -1;
         
-    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_DGRAM, 0)));
+    CHECK( ( sockfd = socket( AF_INET, SOCK_DGRAM, 0)));
 
-    CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
-                               &int_true, sizeof( int)));
+    CHECK( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
+                       &int_true, sizeof( int)));
 
     struct sockaddr_in src_addr;
     memset( &src_addr, 0, sizeof( src_addr));
@@ -57,7 +57,7 @@ ssize_t udp_broadcast_recv( in_port_t port)
 
         recv_res = recv( sockfd, init_msg, SIGN_LEN, 0);
 
-        CHECK_FORWARD( recv_res);
+        CHECK( recv_res);
 
         if ( !strcmp( init_msg, SIGN) && src_addr.sin_port == port)
             break;
@@ -69,7 +69,58 @@ ssize_t udp_broadcast_recv( in_port_t port)
         #endif //DEBUG
     }
     
-    return recv_res;
+    return src_addr;
+}
+
+int tcp_handshake_connect( const in_port_t port,
+                           struct sockaddr_in* dest_addr)
+{
+    int sockfd = -1;
+
+    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_STREAM, 0)));
+
+    CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
+                               &int_true, sizeof( int)));
+
+    dest_addr -> sin_port = port;
+
+    CHECK_FORWARD( connect( sockfd, ( const struct sockaddr*)dest_addr,
+                            ( socklen_t)sizeof( *dest_addr)));
+
+    return sockfd;
+}
+
+int tcp_handshake_accept( const in_port_t port, int backlog)
+{
+    int sockfd = -1;
+
+    CHECK_FORWARD( ( sockfd = socket( AF_INET, SOCK_STREAM, 0)));
+    
+    CHECK_FORWARD( ( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
+                                 &int_true, sizeof( int))));
+
+    struct sockaddr_in addr;
+    memset( &addr, 0, sizeof( addr));
+
+    addr.sin_family = AF_INET;
+    addr.sin_port   = port;
+    addr.sin_addr.s_addr = htonl( INADDR_ANY);
+
+    socklen_t addrlen = sizeof( addr);
+
+    CHECK_FORWARD( bind( sockfd, ( const struct sockaddr*)&addr,
+                         addrlen));
+
+    CHECK_FORWARD( listen( sockfd, backlog));
+
+    CHECK_FORWARD( ( sockfd = accept( sockfd, ( struct sockaddr*)&addr,
+                                      &addrlen)));
+
+    #ifdef DEBUG
+    printf( "Accepted TCP socket = %d\n\n", sockfd);
+    #endif // DEBUG
+
+    return sockfd;
 }
 
 int str_2_uint( char* str)

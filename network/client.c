@@ -5,9 +5,10 @@ int      disconnect_server( double result);
 int      init_threads();
 double   calculate();
 
-static int       nthreads = 0;
-static in_port_t tcp_port = 0;
-static in_port_t udp_port = 0;
+static int       nthreads   = -1;
+static in_port_t tcp_port   = 0;
+static in_port_t udp_port   = 0;
+static int       tcp_socket = -1;
 
 int main( int argc, char* argv[])
 {
@@ -62,10 +63,19 @@ int main( int argc, char* argv[])
 
 int connect_server()
 {
-    CHECK_FORWARD( udp_broadcast_recv( udp_port));
+    struct sockaddr_in server_addr = udp_broadcast_recv( udp_port);
 
     #ifdef DEBUG
     printf( "UDP broadcast has been received\n\n");
     #endif // DEBUG
+
+    CHECK_FORWARD( ( tcp_socket =
+                     tcp_handshake_connect( tcp_port, &server_addr)));
+
+    #ifdef DEBUG
+    printf( "TCP-handshake has been sent\n\n");
+    #endif //DEBUG
+
+    return 0;
 }
 
