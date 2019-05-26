@@ -7,11 +7,11 @@ all: server client
 
 %.o: %.c netlib.h
 
-server: server.o
+server: server.o netlib.o
 
-client: client.o
+client: client.o netlib.o
 
 .PHONY: clean
 
 clean:
-	rm -rf server client
+	@rm -rf server client
