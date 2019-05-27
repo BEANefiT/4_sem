@@ -281,10 +281,6 @@ int get_core_id( int core_num, sys_info_t* sinfo)
 #undef MIN
 #undef MAX
 
-#ifdef DEBUG
-#undef DEBUG
-#endif
-
 #undef _GNU_SOURCE
 #undef MAX_CPUS
 #undef MAX_THREADS_NUM

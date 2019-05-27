@@ -1,5 +1,7 @@
 #include "scaler.h"
 
+#define DEBUG
+
 #define HANDLE_ERROR( msg)                                                \
     do {                                                                  \
         perror(msg);                                                      \

@@ -1,7 +1,6 @@
 #ifndef __SCALER_H__
 #define __SCALER_H__
 
-#define DEBUG
 #define _GNU_SOURCE
 
 #include <errno.h>
