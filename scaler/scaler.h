@@ -15,21 +15,13 @@
 #define MAX_THREADS_NUM 1024
 #define HT_SPEEDUP 1.2
 
-typedef struct ends
-{
-    double end_a;
-    double end_b;
-} ends_t;
-
 typedef struct
 {
     pthread_t tid;       // Thread ID returned by pthread_create().
     int       tnum;      // App-defined thread #.
-    int       cpu_id;    // Set CPU.
-    int       core_id;   // Set Core.
+    int       core_id;   // Set Core ID.
+    int       cpu_id;    // Set CPU ID.
     double    partition; // Thread's part of total execution.
-    //ends_t         ends;    // Ends of calculating.
-    //double         result;  // Result of calculating.
 } thread_info_t;
 
 typedef struct
@@ -37,8 +29,6 @@ typedef struct
     int    cpu_id;    // CPU ID.
     int    nthreads;  // Number of threads proceeding by CPU.
     double partition; // CPU's part of total execution.
-    //double  local_step;
-    //ends_t  ends;
 } cpu_info_t;
 
 typedef struct
@@ -61,9 +51,10 @@ typedef struct
     core_info_t* cores;
 } sys_info_t;
 
-int  init_tinfo( char* num_of_threads_str, thread_info_t**, sys_info_t*);
+int  get_nthreads( char*);
 int  init_sysinfo( sys_info_t*);
-void free_mem();
+int  init_tinfo( int nthreads, thread_info_t*, sys_info_t*);
+void free_mem( sys_info_t*);
 
 #endif // __SCALER_H__
 
