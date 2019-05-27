@@ -137,8 +137,7 @@ int connect_server()
     printf( "UDP broadcast has been received\n\n");
     #endif // DEBUG
 
-    CHECK_FORWARD( ( tcp_sockfd =
-                     tcp_handshake_connect( tcp_port, &server_addr)));
+    CHECK_FORWARD( ( tcp_sockfd = tcp_connect( tcp_port, &server_addr)));
 
     #ifdef DEBUG
     printf( "TCP-handshake has been sent\n\n");

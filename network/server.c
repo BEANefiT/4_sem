@@ -87,6 +87,9 @@ int main( int argc, char* argv[])
 
 int connect_clients()
 {
+    int sockfd_listen = -1;
+    
+    CHECK_FORWARD( ( sockfd_listen = tcp_listen( tcp_port, MAX_CLIENTS_NUM)));
     CHECK_FORWARD( udp_broadcast_send( udp_port));
 
     #ifdef DEBUG
@@ -95,11 +98,10 @@ int connect_clients()
 
     int sockfds[nclients];
 
-    CHECK_FORWARD( tcp_handshake_accept( tcp_port, sockfds, nclients,
-                                         MAX_CLIENTS_NUM));
-
     for ( int i = 0; i < nclients; i++)
-        clients[i].sockfd = sockfds[i];
+        CHECK_FORWARD( ( clients[i].sockfd = tcp_accept( sockfd_listen)));
+
+    return 0;
 }
 
 int disconnect_clients()

@@ -41,9 +41,9 @@
 
 struct sockaddr_in udp_broadcast_recv( const in_port_t);
 ssize_t            udp_broadcast_send( const in_port_t);
-int                tcp_handshake_accept( const in_port_t, int* sockfds,
-                                         int nclients, int backlog);
-int                tcp_handshake_connect( const in_port_t, struct sockaddr_in*);
+int                tcp_listen( const in_port_t, int backlog);
+int                tcp_accept( int sockfd_listen);
+int                tcp_connect( const in_port_t, struct sockaddr_in*);
 
 #endif // __NETLIB_H__
 
