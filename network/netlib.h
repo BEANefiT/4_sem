@@ -3,6 +3,8 @@
 
 #define DEBUG
 
+#include "../scaler/scaler.h"
+
 #include <arpa/inet.h>
 #include <errno.h>
 #include <inttypes.h>
@@ -14,12 +16,6 @@
 #include <string.h>
 #include <sys/socket.h>
 #include <sys/types.h>
-
-#define HANDLE_ERROR( msg) \
-    do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
-
-#define HANDLE_ERROR_EN( msg, en) \
-    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
 
 #define FORWARD_ERROR( msg) \
     do { int en = errno; fprintf( stderr, msg); errno = en; return -1; } while ( 0)
@@ -48,7 +44,6 @@ ssize_t            udp_broadcast_send( const in_port_t);
 int                tcp_handshake_accept( const in_port_t, int* sockfds,
                                          int nclients, int backlog);
 int                tcp_handshake_connect( const in_port_t, struct sockaddr_in*);
-int                str_2_uint( char*);
 
 #endif // __NETLIB_H__
 

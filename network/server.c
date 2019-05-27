@@ -1,4 +1,14 @@
 #include "netlib.h"
+#include "integrator.h"
+
+#define HANDLE_ERROR( msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
+#define HANDLE_ERROR_EN( msg, en) \
+    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
+#define END_A 2.1
+#define END_B 5.9
 
 typedef struct
 {
@@ -9,12 +19,13 @@ typedef struct
 int      connect_clients();
 int      disconnect_clients();
 int      init_jobs();
-double   calculate();
 
-static int       nclients = -1;
-static in_port_t udp_port = 0;
-static in_port_t tcp_port = 0;
-static client_t* clients  = NULL;
+static int       nclients  = -1;
+static in_port_t udp_port  = 0;
+static in_port_t tcp_port  = 0;
+static client_t* clients   = NULL;
+static double    partition = 0.;
+static double    result    = 0.;
 
 int main( int argc, char* argv[])
 {
@@ -22,11 +33,10 @@ int main( int argc, char* argv[])
     {
         if ( argc != 2)
         {
-            char msg[64] = {};
-            sprintf( msg, "Usage: %s nclients [udp_port] [tcp_port]",
+            fprintf( stderr, "Usage: %s nclients [udp_port] [tcp_port]\n",
                      argv[0]);
 
-            HANDLE_ERROR_EN( msg, EINVAL);
+            exit( EXIT_FAILURE);
         }
 
         else
@@ -67,14 +77,8 @@ int main( int argc, char* argv[])
     }
 
     CHECK( connect_clients());
-
-    //CHECK( init_jobs());
-
-    double result = 0.;
-
-    //CHECK( ( result = calculate()));
-
-    //CHECK( disconnect_clients());
+    CHECK( init_jobs());
+    CHECK( disconnect_clients());
 
     printf( "Result is %lg\n", result);
 
@@ -97,4 +101,73 @@ int connect_clients()
     for ( int i = 0; i < nclients; i++)
         clients[i].sockfd = sockfds[i];
 }
+
+int disconnect_clients()
+{
+    for ( int i = 0; i < nclients; i++)
+    {
+        double res = 0.;
+
+        CHECK_FORWARD( read( clients[i].sockfd, &res, sizeof( double)));
+
+        result += res;
+
+        #ifdef DEBUG
+        printf( "Result of Client #%d has been received\n\n", i);
+        #endif // DEBUG
+    }
+
+    return 0;
+}
+
+int init_jobs()
+{
+    for ( int i = 0; i < nclients; i++)
+    {
+        CHECK_FORWARD( read( clients[i].sockfd, &clients[i].partition,
+                             sizeof( double)));
+
+        partition += clients[i].partition;
+        
+        #ifdef DEBUG
+        printf( "Client #%d system information has been received\n"
+                "\tsinfo.partition = %lg\n\n", i, clients[i].partition);
+        #endif // DEBUG
+    }
+
+    double end_a = END_A;
+    double step  = ( END_B - END_A) / partition;
+
+    for ( int i = 0; i < nclients; i++)
+    {
+        ends_t ends = {
+            .end_a = end_a,
+            .end_b = end_a + step * clients[i].partition
+        };
+
+        CHECK_FORWARD( write( clients[i].sockfd, &ends, sizeof( ends)));
+
+        end_a += step * clients[i].partition;
+
+        #ifdef DEBUG
+        printf( "Calculation ends for Client #%d has been sent\n\n", i);
+        #endif // DEBUG
+    }
+
+    return 0;
+}
+
+#undef HANDLE_ERROR
+#undef HANDLE_ERROR_EN
+#undef FORWARD_ERROR
+#undef FORWARD_ERROR_EN
+#undef CHECK
+#undef CHECK_FORWARD
+#undef MIN
+#undef MAX
+#undef DEFAULT_UDP_PORT
+#undef DEFAULT_TCP_PORT
+#undef SIGN
+#undef SIGN_LEN
+#undef MAX_CLIENTS_NUM
 

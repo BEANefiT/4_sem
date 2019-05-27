@@ -1,5 +1,11 @@
 #include "netlib.h"
 
+#define HANDLE_ERROR( msg) \
+    do { perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
+#define HANDLE_ERROR_EN( msg, en) \
+    do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
+
 static int int_true = 1;
 static int int_false = 0;
 
@@ -128,18 +134,6 @@ int tcp_handshake_accept( const in_port_t port, int* sockfds,
     return 0;
 }
 
-int str_2_uint( char* str)
-{
-    char* endptr = NULL;
-
-    int n = strtoul( str, &endptr, 10);
-
-    if ( str == NULL || *endptr != '\0')
-        FORWARD_ERROR_EN( "In strtol()\n", EINVAL);
-
-    else if (errno)
-        FORWARD_ERROR( "In strtol()\n");
-
-    return n;
-}
+#undef HANDLE_ERROR
+#undef HANDLE_ERROR_EN
 
