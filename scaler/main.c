@@ -87,6 +87,7 @@ typedef struct
 } thread_module_t;
 
 int          create_threads();
+int          join_threads();
 static void* calculate( void* arg);
 
 static int               nthreads = -1;
@@ -103,31 +104,25 @@ int main( int argc, char* argv[])
     }
 
     CHECK( init_sysinfo( &sinfo));
-
     CHECK( ( nthreads = str_2_uint( argv[1])));
 
     tinfo = ( thread_module_t**)calloc( MAX( nthreads, sinfo.num_of_cores),
                                         sizeof( *tinfo));
+
+    if ( tinfo == NULL)
+        HANDLE_ERROR( "In calloc of tinfo");
 
     for ( int i = 0; i < MAX( nthreads, sinfo.num_of_cores); i++)
     {
         tinfo[i] = ( thread_module_t*)calloc( 1, sizeof( *tinfo[i]));
 
         if ( tinfo[i] == NULL)
-            HANDLE_ERROR( "In calloc of tinfo");
+            HANDLE_ERROR( "In calloc of tinfo[i]");
     }
 
     CHECK( init_tinfo( nthreads, ( thread_info_t**)tinfo, &sinfo));
-
     CHECK( create_threads());
-
-    for ( int tnum = 0; tnum < nthreads; tnum++)
-    {
-        if ( pthread_join( tinfo[tnum]->tid, NULL) != 0)
-            HANDLE_ERROR( "In pthread_join");
-
-        result += tinfo[tnum]->result;
-    }
+    CHECK( join_threads());
 
     printf( "Result is %lg\n", result);
 
@@ -137,7 +132,6 @@ int main( int argc, char* argv[])
 
     free( tinfo);
     free( sinfo.cores);
-
     exit( EXIT_SUCCESS);
 }
 
@@ -186,15 +180,28 @@ int create_threads()
 
         if ( pthread_attr_setaffinity_np( &attr, sizeof( cpu_set_t),
                                           &cpuset) != 0)
-            HANDLE_ERROR( "In pthread_attr_setaffinity_np()");
+            FORWARD_ERROR( "In pthread_attr_setaffinity_np()\n");
 
         if ( pthread_create( &( thread->tid), &attr, &calculate, thread) != 0)
-            HANDLE_ERROR( "In pthread_create");
+            FORWARD_ERROR( "In pthread_create\n");
     }
 
     if ( pthread_attr_destroy( &attr) != 0)
-        HANDLE_ERROR( "In pthread_attr_destroy()");
+        FORWARD_ERROR( "In pthread_attr_destroy()\n");
 
+    return 0;
+}
+
+int join_threads()
+{
+    for ( int tnum = 0; tnum < nthreads; tnum++)
+    {
+        if ( pthread_join( tinfo[tnum]->tid, NULL) != 0)
+            FORWARD_ERROR( "In pthread_join\n");
+
+        result += tinfo[tnum]->result;
+    }
+    
     return 0;
 }
 
