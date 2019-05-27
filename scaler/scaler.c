@@ -230,11 +230,11 @@ int init_tinfo( int nthreads, thread_info_t** tinfo, sys_info_t* sinfo)
     return 0;
 }
 
-int get_nthreads( char* str)
+int str_2_uint( char* str)
 {
     char* endptr = NULL;
 
-    int nthreads = strtol( str, &endptr, 10);
+    int n = strtol( str, &endptr, 10);
 
     if ( str == NULL || *endptr != '\0')
         FORWARD_ERROR_EN( "In strtol()\n", EINVAL);
@@ -242,7 +242,7 @@ int get_nthreads( char* str)
     else if (errno)
         FORWARD_ERROR( "In strtol()\n");
 
-    return nthreads;
+    return n;
 }
 
 int get_core_id_by_prev( int core_id_prev, sys_info_t* sinfo)

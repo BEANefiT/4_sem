@@ -104,7 +104,7 @@ int main( int argc, char* argv[])
 
     CHECK( init_sysinfo( &sinfo));
 
-    CHECK( ( nthreads = get_nthreads( argv[1])));
+    CHECK( ( nthreads = str_2_uint( argv[1])));
 
     tinfo = ( thread_module_t**)calloc( MAX( nthreads, sinfo.num_of_cores),
                                         sizeof( *tinfo));

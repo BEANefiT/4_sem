@@ -50,7 +50,7 @@ typedef struct
     core_info_t* cores;
 } sys_info_t;
 
-int  get_nthreads( char*);
+int  str_2_uint( char*);
 int  init_sysinfo( sys_info_t*);
 int  init_tinfo( int nthreads, thread_info_t**, sys_info_t*);
 
