@@ -26,6 +26,8 @@ static in_port_t tcp_port  = 0;
 static client_t* clients   = NULL;
 static double    partition = 0.;
 static double    result    = 0.;
+static fd_set    readfds;
+static fd_set    writefds;
 
 int main( int argc, char* argv[])
 {
@@ -106,17 +108,46 @@ int connect_clients()
 
 int disconnect_clients()
 {
-    for ( int i = 0; i < nclients; i++)
+    int ncycles = nclients;
+    char* is_read = ( char*)calloc( nclients, sizeof( char));
+
+    while ( 1)
     {
-        double res = 0.;
+        FD_ZERO( &readfds);
+        int nfds = 0;
 
-        CHECK_FORWARD( read( clients[i].sockfd, &res, sizeof( double)));
+        for ( int i = 0; i < nclients; i++)
+        {
+            if ( is_read[i])
+                continue;
 
-        result += res;
+            if ( clients[i].sockfd >= nfds)
+                nfds = clients[i].sockfd + 1;
 
-        #ifdef DEBUG
-        printf( "Result of Client #%d has been received\n\n", i);
-        #endif // DEBUG
+            FD_SET( clients[i].sockfd, &readfds);
+        }
+
+        CHECK_FORWARD( select( nfds, &readfds, NULL, NULL, NULL));
+        
+        for ( int i = 0; i < nclients; i++)
+        {
+            if ( !FD_ISSET( clients[i].sockfd, &readfds))
+                continue;
+
+            is_read[i] = 1;
+            ncycles --;
+
+            double res = 0.;
+            CHECK_FORWARD( read( clients[i].sockfd, &res, sizeof( double)));
+            result += res;
+
+            #ifdef DEBUG
+            printf( "Result of Client #%d has been received\n\n", i);
+            #endif // DEBUG
+        }
+
+        if ( ncycles <= 0)
+            break;
     }
 
     return 0;
