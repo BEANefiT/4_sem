@@ -177,6 +177,14 @@ int init_ends()
             "\tsinfo.partition = %lg\n\n", sinfo.partition);
     #endif // DEBUG
 
+    fd_set readfd;
+    FD_ZERO( &readfd);
+    FD_SET( tcp_sockfd, &readfd);
+    select( tcp_sockfd + 1, &readfd, NULL, NULL, &(( struct timeval){2, 0}));
+
+    if ( !FD_ISSET( tcp_sockfd, &readfd))
+        FORWARD_ERROR_EN( "Too many clients\n", ECONNREFUSED);
+
     CHECK_FORWARD( read( tcp_sockfd, &ends, sizeof( ends)));
 
     #ifdef DEBUG
