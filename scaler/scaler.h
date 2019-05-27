@@ -53,8 +53,7 @@ typedef struct
 
 int  get_nthreads( char*);
 int  init_sysinfo( sys_info_t*);
-int  init_tinfo( int nthreads, thread_info_t*, sys_info_t*);
-void free_mem( sys_info_t*);
+int  init_tinfo( int nthreads, thread_info_t**, sys_info_t*);
 
 #endif // __SCALER_H__
 
