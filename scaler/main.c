@@ -1,5 +1,10 @@
 #include "scaler.h"
 
+#define END_A 2.1
+#define END_B 5.9
+
+#define FUNC( x) ( ( 0.23 * x * x) - ( x - 0.5))
+
 static void* calculate( void* arg);
 
 int main( int argc, char* argv[])
