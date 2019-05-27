@@ -108,6 +108,18 @@ int tcp_connect( const in_port_t port, struct sockaddr_in* dest_addr)
     CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
                                &int_true, sizeof( int)));
 
+    CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_KEEPALIVE,
+                               &int_true, sizeof( int)));
+
+    CHECK_FORWARD( setsockopt( sockfd, IPPROTO_TCP, TCP_KEEPIDLE,
+                               &int_true, sizeof( int)));
+    CHECK_FORWARD( setsockopt( sockfd, IPPROTO_TCP, TCP_KEEPINTVL,
+                               &int_true, sizeof( int)));
+    CHECK_FORWARD( setsockopt( sockfd, IPPROTO_TCP, TCP_KEEPCNT,
+                               &int_true, sizeof( int)));
+
+    CHECK_FORWARD( fcntl( sockfd, F_SETOWN, getpid()));
+
     dest_addr -> sin_port = port;
     CHECK_FORWARD( connect( sockfd, ( const struct sockaddr*)dest_addr,
                             ( socklen_t)sizeof( *dest_addr)));

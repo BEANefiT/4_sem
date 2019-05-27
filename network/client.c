@@ -1,6 +1,8 @@
 #include "netlib.h"
 #include "integrator.h"
 
+#include <signal.h>
+
 #define FUNC( x) ( ( 0.23 * x * x) - ( x - 0.5))
 
 #define HANDLE_ERROR( msg)                                                \
@@ -56,6 +58,7 @@ int          disconnect_server();
 int          init_ends();
 int          create_threads();
 int          join_threads();
+void         sigio_handler( int);
 static void* calculate( void* arg);
 
 static int               nthreads   = -1;
@@ -66,6 +69,8 @@ static double            result     = 0.;
 static sys_info_t        sinfo      = {0, 0, 0, 0, 0, 0., NULL};
 static thread_module_t** tinfo      = NULL;
 static ends_t            ends       = {0, 0};
+static const int         int_true   = 1;
+static const int         int_false  = 0;
 
 int main( int argc, char* argv[])
 {
@@ -90,6 +95,12 @@ int main( int argc, char* argv[])
             tcp_port = htons( DEFAULT_TCP_PORT);
         }
     }
+
+    struct sigaction act = {
+            .sa_handler = sigio_handler
+    };
+
+    CHECK( sigaction( SIGIO, &act, NULL));
 
     CHECK( init_sysinfo( &sinfo));
     CHECK( ( nthreads = str_2_uint( argv[1])));
@@ -123,8 +134,10 @@ int main( int argc, char* argv[])
 
     CHECK( connect_server());
     CHECK( init_ends());
+    CHECK( fcntl( tcp_sockfd, F_SETFL, O_ASYNC));
     CHECK( create_threads());
     CHECK( join_threads());
+    CHECK( fcntl( tcp_sockfd, F_SETFL, 0));
     CHECK( disconnect_server());
     exit( EXIT_SUCCESS);
 }
@@ -269,6 +282,11 @@ static void* calculate( void* arg)
     }
 
     info->result = result;
+}
+
+void sigio_handler( int arg)
+{
+    HANDLE_ERROR_EN( "Server is dead", ECONNABORTED);
 }
 
 #undef HANDLE_ERROR

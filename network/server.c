@@ -17,7 +17,7 @@ typedef struct
 } client_t;
 
 int      connect_clients();
-int      disconnect_clients();
+int      wait_results();
 int      init_jobs();
 
 static int       nclients  = -1;
@@ -28,6 +28,8 @@ static double    partition = 0.;
 static double    result    = 0.;
 static fd_set    readfds;
 static fd_set    writefds;
+static const int int_true  = 1;
+static const int int_false = 0;
 
 int main( int argc, char* argv[])
 {
@@ -80,7 +82,7 @@ int main( int argc, char* argv[])
 
     CHECK( connect_clients());
     CHECK( init_jobs());
-    CHECK( disconnect_clients());
+    CHECK( wait_results());
 
     printf( "Result is %lg\n", result);
 
@@ -106,7 +108,7 @@ int connect_clients()
     return 0;
 }
 
-int disconnect_clients()
+int wait_results()
 {
     int ncycles = nclients;
     char* is_read = ( char*)calloc( nclients, sizeof( char));
@@ -138,11 +140,21 @@ int disconnect_clients()
             ncycles --;
 
             double res = 0.;
-            CHECK_FORWARD( read( clients[i].sockfd, &res, sizeof( double)));
+            ssize_t read_res = -1;
+            CHECK_FORWARD( ( read_res = read( clients[i].sockfd,
+                                              &res, sizeof( double))));
+
+            if ( !read_res)
+            {
+                char msg[64] = {};
+                sprintf( msg, "Client #%d is dead\n", i + 1);
+                FORWARD_ERROR_EN( msg, ECONNABORTED);
+            }
+
             result += res;
 
             #ifdef DEBUG
-            printf( "Result of Client #%d has been received\n\n", i);
+            printf( "Result of Client #%d has been received\n\n", i + 1);
             #endif // DEBUG
         }
 
@@ -157,14 +169,23 @@ int init_jobs()
 {
     for ( int i = 0; i < nclients; i++)
     {
-        CHECK_FORWARD( read( clients[i].sockfd, &clients[i].partition,
-                             sizeof( double)));
+        ssize_t read_res;
+        CHECK_FORWARD( ( read_res = read( clients[i].sockfd,
+                                          &clients[i].partition,
+                                          sizeof( double))));
+
+        if ( !read_res)
+        {
+            char msg[64] = {};
+            sprintf( msg, "Client #%d is dead\n", i + 1);
+            FORWARD_ERROR_EN( msg, ECONNABORTED);
+        }
 
         partition += clients[i].partition;
         
         #ifdef DEBUG
         printf( "Client #%d system information has been received\n"
-                "\tsinfo.partition = %lg\n\n", i, clients[i].partition);
+                "\tsinfo.partition = %lg\n\n", i + 1, clients[i].partition);
         #endif // DEBUG
     }
 
@@ -183,7 +204,7 @@ int init_jobs()
         end_a += step * clients[i].partition;
 
         #ifdef DEBUG
-        printf( "Calculation ends for Client #%d has been sent\n\n", i);
+        printf( "Calculation ends for Client #%d has been sent\n\n", i + 1);
         #endif // DEBUG
     }
 
