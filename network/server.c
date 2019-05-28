@@ -8,7 +8,7 @@
     do { errno = en; perror(msg); exit(EXIT_FAILURE); } while ( 0)
 
 #define END_A 2.1
-#define END_B 5.9
+#define END_B 8.9
 
 typedef struct
 {

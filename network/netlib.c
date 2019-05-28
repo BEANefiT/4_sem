@@ -47,13 +47,13 @@ struct sockaddr_in udp_broadcast_recv( const in_port_t port)
 
     struct sockaddr_in src_addr;
     memset( &src_addr, 0, sizeof( src_addr));
+    socklen_t addrlen = sizeof( src_addr);
 
     src_addr.sin_family      = AF_INET;
     src_addr.sin_port        = port;
     src_addr.sin_addr.s_addr = htonl( INADDR_ANY);
 
-    CHECK( bind( sockfd, ( const struct sockaddr*)&src_addr,
-                 ( socklen_t)sizeof( src_addr)));
+    CHECK( bind( sockfd, ( const struct sockaddr*)&src_addr, addrlen));
 
     ssize_t recv_res = -1;
 
@@ -61,7 +61,8 @@ struct sockaddr_in udp_broadcast_recv( const in_port_t port)
     {
         char init_msg[SIGN_LEN];
 
-        recv_res = recv( sockfd, init_msg, SIGN_LEN, 0);
+        recv_res = recvfrom( sockfd, init_msg, SIGN_LEN, 0,
+                             ( struct sockaddr*)&src_addr, &addrlen);
 
         CHECK( recv_res);
 
@@ -108,6 +109,10 @@ int tcp_connect( const in_port_t port, struct sockaddr_in* dest_addr)
     CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_REUSEADDR,
                                &int_true, sizeof( int)));
 
+    dest_addr -> sin_port = port;
+    CHECK_FORWARD( connect( sockfd, ( const struct sockaddr*)dest_addr,
+                            ( socklen_t)sizeof( *dest_addr)));
+
     CHECK_FORWARD( setsockopt( sockfd, SOL_SOCKET, SO_KEEPALIVE,
                                &int_true, sizeof( int)));
 
@@ -120,9 +125,6 @@ int tcp_connect( const in_port_t port, struct sockaddr_in* dest_addr)
 
     CHECK_FORWARD( fcntl( sockfd, F_SETOWN, getpid()));
 
-    dest_addr -> sin_port = port;
-    CHECK_FORWARD( connect( sockfd, ( const struct sockaddr*)dest_addr,
-                            ( socklen_t)sizeof( *dest_addr)));
 
     return sockfd;
 }
@@ -138,6 +140,18 @@ int tcp_accept( int sockfd_listen)
     CHECK_FORWARD( ( sockfd_accept = accept( sockfd_listen,
                                              ( struct sockaddr*)&addr,
                                              &addrlen)));
+
+    CHECK_FORWARD( setsockopt( sockfd_accept, SOL_SOCKET, SO_KEEPALIVE,
+                               &int_true, sizeof( int)));
+
+    CHECK_FORWARD( setsockopt( sockfd_accept, IPPROTO_TCP, TCP_KEEPIDLE,
+                               &int_true, sizeof( int)));
+    CHECK_FORWARD( setsockopt( sockfd_accept, IPPROTO_TCP, TCP_KEEPINTVL,
+                               &int_true, sizeof( int)));
+    CHECK_FORWARD( setsockopt( sockfd_accept, IPPROTO_TCP, TCP_KEEPCNT,
+                               &int_true, sizeof( int)));
+
+    CHECK_FORWARD( fcntl( sockfd_accept, F_SETOWN, getpid()));
 
     #ifdef DEBUG
     printf( "Accepted TCP socket = %d\n\n", sockfd_accept);

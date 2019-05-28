@@ -185,7 +185,11 @@ int init_ends()
     if ( !FD_ISSET( tcp_sockfd, &readfd))
         FORWARD_ERROR_EN( "Too many clients\n", ECONNREFUSED);
 
-    CHECK_FORWARD( read( tcp_sockfd, &ends, sizeof( ends)));
+    ssize_t read_res = 0;
+    CHECK_FORWARD( ( read_res = read( tcp_sockfd, &ends, sizeof( ends))));
+
+    if ( !read_res)
+        FORWARD_ERROR_EN( "Server is dead\n", ECONNABORTED);
 
     #ifdef DEBUG
     printf( "Received ends of calculating\n"
